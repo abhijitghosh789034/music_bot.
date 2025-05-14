@@ -1,0 +1,12 @@
+import os import logging import requests from telegram import Update from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+Enable logging
+logging.basicConfig( format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO ) logger = logging.getLogger(name)
+Handlers
+def start(update: Update, context: CallbackContext) -> None: """Send a welcome message when the /start command is issued.""" update.message.reply_text( "नमस्ते! मैं आपका डाउनलोड बॉट हूँ। सहायता के लिए /help टाइप करें।" )
+def help_command(update: Update, context: CallbackContext) -> None: """Send a help message when the /help command is issued.""" update.message.reply_text( "उपलब्ध कमांड्स:\n" "/start - बॉट शुरू करें\n" "/help - सहायता संदेश दिखाएं\n" "/echo - मैसेज को ईको करें\n" "/download - URL से फाइल डाउनलोड करें और भेजें" )
+def echo(update: Update, context: CallbackContext) -> None: """Echo the user message.""" text = ' '.join(context.args) if text: update.message.reply_text(text) else: update.message.reply_text("कृपया /echo के बाद मैसेज लिखें।")
+def download(update: Update, context: CallbackContext) -> None: """Download a file from a given URL and send it back to the user.""" if not context.args: update.message.reply_text("कृपया /download के बाद मान्य URL लिखें।") return
+url = context.args[0] chat_id = update.message.chat_id try: response = requests.get(url, stream=True) response.raise_for_status() filename = url.split('/')[-1] or 'downloaded_file' with open(filename, 'wb') as f: for chunk in response.iter_content(chunk_size=8192): f.write(chunk) with open(filename, 'rb') as f: context.bot.send_document(chat_id=chat_id, document=f) os.remove(filename) except Exception as e: logger.error(f"Download error: {e}") update.message.reply_text(f"डाउनलोड में त्रुटि: {e}") 
+def main() -> None: """Start the bot.""" token = os.getenv('BOT_TOKEN') if not token: logger.error("Please set the BOT_TOKEN environment variable.") return
+updater = Updater(token) dispatcher = updater.dispatcher # Register handlers dispatcher.add_handler(CommandHandler("start", start)) dispatcher.add_handler(CommandHandler("help", help_command)) dispatcher.add_handler(CommandHandler("echo", echo)) dispatcher.add_handler(CommandHandler("download", download)) dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, echo)) # Start polling updater.start_polling() logger.info("Bot started polling...") updater.idle() 
+if name == 'main': main()
